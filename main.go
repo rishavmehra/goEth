@@ -2,17 +2,24 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 var ethClient *ethclient.Client
+
+type AddressRequest struct {
+	Address string `json:"address"`
+}
 
 func main() {
 	var err error
@@ -24,12 +31,46 @@ func main() {
 	r := gin.Default()
 	r.GET("/", EthLatestBlock)
 	r.POST("/balance", EthBalance)
+	r.GET("/wallet", CreateWallet)
 
 	r.Run()
 }
 
-type AddressRequest struct {
-	Address string `json:"address"`
+func EthCommon() (*ethclient.Client, error) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
+	client, err := ethclient.Dial(infuraEndpoint)
+	if err != nil {
+		log.Fatal("Unable to connect with the Client: ", err)
+	}
+	return client, nil
+}
+
+func CreateWallet(c *gin.Context) {
+
+	privateKey, err := crypto.GenerateKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Private Key: ", privateKey)
+
+	publicKey := privateKey.Public()
+	fmt.Println("Public Key: ", publicKey)
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		log.Fatal("error casting public key to ECDSA")
+	}
+
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	fmt.Println("New wallet Address:", address.Hex())
+	c.JSON(http.StatusOK, gin.H{
+		"New Wallet": address,
+	})
+
 }
 
 func EthBalance(c *gin.Context) {
@@ -65,18 +106,4 @@ func EthLatestBlock(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message for block number": blockNumber,
 	})
-}
-
-func EthCommon() (*ethclient.Client, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
-	client, err := ethclient.Dial(infuraEndpoint)
-	if err != nil {
-		log.Fatal("Unable to connect with the Client: ", err)
-	}
-	return client, nil
 }
