@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -33,22 +34,50 @@ func main() {
 	r.GET("/", EthLatestBlock)
 	r.POST("/balance", EthBalance)
 	r.GET("/wallet", CreateWallet)
+	r.GET("/ks", CreateKeyStore)
+	r.GET("/vl", addressCheck)
 
 	r.Run()
 }
 
-func EthCommon() (*ethclient.Client, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+type EthAddress struct {
+	Address string `json:"address"`
+}
+
+func addressCheck(c *gin.Context) {
+	// re := regexp.MustCompile("^0x[0-9a-fA-F]{40}$")
+
+	var req EthAddress
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(err)
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
-	// infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
-	client, err := ethclient.Dial("/tmp/geth.ipc")
+	address := common.HexToAddress(req.Address)
+	bytecode, err := ethClient.CodeAt(context.Background(), address, nil)
 	if err != nil {
-		log.Fatal("Unable to connect with the Client: ", err)
+		log.Fatal(err)
 	}
-	return client, nil
+	isContract := len(bytecode) > 0
+	fmt.Printf("is contract: %v\n", isContract)
+	c.JSON(http.StatusOK, gin.H{
+		"message": isContract,
+	})
+}
+
+func CreateKeyStore(c *gin.Context) {
+	ks := keystore.NewKeyStore("./newkey", keystore.StandardScryptN, keystore.StandardScryptP)
+	password := "secret"
+	account, err := ks.NewAccount(password)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hexAccount := account.Address.Hex()
+	c.JSON(http.StatusOK, gin.H{
+		"message": hexAccount,
+	})
 }
 
 func CreateWallet(c *gin.Context) {
@@ -71,7 +100,6 @@ func CreateWallet(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"New Wallet": address,
 	})
-
 }
 
 func EthBalance(c *gin.Context) {
@@ -111,4 +139,18 @@ func EthLatestBlock(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message for block number": blockNumber,
 	})
+}
+
+func EthCommon() (*ethclient.Client, error) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
+	client, err := ethclient.Dial("/tmp/geth.ipc")
+	if err != nil {
+		log.Fatal("Unable to connect with the Client: ", err)
+	}
+	return client, nil
 }
