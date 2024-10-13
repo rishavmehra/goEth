@@ -5,8 +5,9 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"log"
+	"math"
+	"math/big"
 	"net/http"
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -42,8 +43,8 @@ func EthCommon() (*ethclient.Client, error) {
 		log.Fatal("Error loading .env file")
 	}
 
-	infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
-	client, err := ethclient.Dial(infuraEndpoint)
+	// infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
+	client, err := ethclient.Dial("/tmp/geth.ipc")
 	if err != nil {
 		log.Fatal("Unable to connect with the Client: ", err)
 	}
@@ -88,8 +89,12 @@ func EthBalance(c *gin.Context) {
 		log.Fatal("Unable to fetch balance: ", err)
 	}
 
+	fbalance := new(big.Float)
+	fbalance.SetString(balance.String())
+	ethValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
+
 	c.JSON(http.StatusOK, gin.H{
-		"balance": balance.String(), // need to convert tthis in string
+		"balance": ethValue.String(), // need to convert tthis in string
 	})
 }
 
