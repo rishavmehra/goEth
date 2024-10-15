@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 	"net/http"
+	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 )
 
 var ethClient *ethclient.Client
@@ -31,6 +33,7 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(cors.Default())
 	r.GET("/", EthLatestBlock)
 	r.POST("/balance", EthBalance)
 	r.GET("/wallet", CreateWallet)
@@ -147,8 +150,9 @@ func EthCommon() (*ethclient.Client, error) {
 		log.Fatal("Error loading .env file")
 	}
 
-	// infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
-	client, err := ethclient.Dial("/tmp/geth.ipc")
+	infuraEndpoint := os.Getenv("INFURA_ENDPOINT")
+	client, err := ethclient.Dial(infuraEndpoint)
+	// client, err := ethclient.Dial("/tmp/geth.ipc")
 	if err != nil {
 		log.Fatal("Unable to connect with the Client: ", err)
 	}
